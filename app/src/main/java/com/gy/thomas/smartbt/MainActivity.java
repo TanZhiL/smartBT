@@ -3,6 +3,7 @@ package com.gy.thomas.smartbt;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -46,9 +47,11 @@ import static com.inuker.bluetooth.library.Constants.STATUS_DEVICE_DISCONNECTED;
 public class MainActivity extends AppCompatActivity {
 
     private static final UUID UUID_SERVICE_CHANNEL
-            = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb");
-    private static final UUID UUID_CHARACTERISTIC_CHANNEL
-            = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb");
+            = UUID.fromString("0000fff0-0000-1000-8000-00805f9b34fb");
+    private static final UUID UUID_CHARACTERISTIC_CHANNEL_NOTIFY
+            = UUID.fromString("0000fff6-0000-1000-8000-00805f9b34fb");
+    private static final UUID UUID_CHARACTERISTIC_CHANNEL_WRITE
+            = UUID.fromString("0000fff6-0000-1000-8000-00805f9b34fb");
     //读取指令
     private static final byte[] READ = {0x05, (byte) 0xA9, 0x00, 0x00, 0x00, 0x0d};
     //去皮指令
@@ -86,7 +89,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mac = getSharedPreferences("sp", MODE_PRIVATE).getString("mac", "");
+        SharedPreferences sp=getSharedPreferences("sp", MODE_PRIVATE);
+
+        long time = sp.getLong("time", 0);
+        if(time==0){
+            sp.edit().putLong("time",System.currentTimeMillis()).apply();
+        }else {
+            //30天
+            if(30L*24*60*60*1000<System.currentTimeMillis()-time){
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("版本已过有效期,请购买正式版")
+                        .setMessage("联系邮箱:1071931588@qq.com")
+                        .setCancelable(false)
+                        .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                              finish();
+                            }
+                        })
+                        .show();
+            }
+        }
+        mac = sp.getString("mac", "");
         if (mac.length() == 0) {
             startActivity(new Intent(this, ScanActivity.class));
             finish();
@@ -278,7 +302,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void registerNotify() {
-        mBluetoothClient.notify(mac, UUID_SERVICE_CHANNEL, UUID_CHARACTERISTIC_CHANNEL, new BleNotifyResponse() {
+        mBluetoothClient.notify(mac, UUID_SERVICE_CHANNEL, UUID_CHARACTERISTIC_CHANNEL_NOTIFY, new BleNotifyResponse() {
             @Override
             public void onNotify(UUID service, UUID character, byte[] value) {
 
@@ -334,7 +358,7 @@ public class MainActivity extends AppCompatActivity {
 
         btNext.setEnabled(false);
         btNext.setText("通讯中");
-        mBluetoothClient.write(mac, UUID_SERVICE_CHANNEL, UUID_CHARACTERISTIC_CHANNEL, value, new BleWriteResponse() {
+        mBluetoothClient.write(mac, UUID_SERVICE_CHANNEL, UUID_CHARACTERISTIC_CHANNEL_WRITE, value, new BleWriteResponse() {
             @Override
             public void onResponse(int code) {
                 if (code != REQUEST_SUCCESS) {
